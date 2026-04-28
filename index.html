@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>শান্ত · একক বোতাম | ধীরে স্ক্রল</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* prevents accidental text selection */
+        }
+
+        /* ----- বডি: শুধু ব্যাকগ্রাউন্ড আর স্ক্রল এর জন্য ----- */
+        body {
+            /* লম্বা পেজ — ধীরে স্ক্রল হবে, বাটন স্থির থাকবে */
+            min-height: 300vh;
+            background: radial-gradient(circle at 20% 30%, #0a0f1e, #03050b);
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Poppins', sans-serif;
+            overflow-x: hidden;
+            position: relative;
+            transition: background 0.2s ease;
+        }
+
+        /* মসৃণ স্ক্রল এফেক্টের জন্য (যদিও JS নিয়ন্ত্রণ করে) */
+        html {
+            scroll-behavior: auto; /* JS নিজেই হাতল নেবে */
+        }
+
+        /* ----- সাজানো ব্যাকগ্রাউন্ড আর্ট : নরম আভা, কোন লেখা নেই ----- */
+        .ambient-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glow-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: 0.4;
+            mix-blend-mode: soft-light;
+        }
+
+        .orb1 {
+            width: 60vw;
+            height: 60vw;
+            background: #3b2b7c;
+            top: -20%;
+            left: -20%;
+            animation: drift 24s infinite alternate ease-in-out;
+        }
+
+        .orb2 {
+            width: 50vw;
+            height: 50vw;
+            background: #1f4b6e;
+            bottom: -15%;
+            right: -15%;
+            animation: drift 28s infinite alternate-reverse ease-in-out;
+        }
+
+        .orb3 {
+            width: 45vw;
+            height: 45vw;
+            background: #5e2a5e;
+            top: 40%;
+            left: 60%;
+            animation: floatSlow 32s infinite alternate;
+        }
+
+        @keyframes drift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(8%, 12%) rotate(8deg); }
+        }
+
+        @keyframes floatSlow {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-6%, -10%) scale(1.2); }
+        }
+
+        /* ----- একমাত্র বাটন: মিনিমাল, গ্লাসমরফিজম, স্থির (fixed) ----- */
+        .divine-button {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            cursor: pointer;
+            background: rgba(20, 25, 45, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 80px;
+            padding: 1.2rem 2.4rem;
+            font-size: 1.6rem;
+            font-weight: 600;
+            font-family: inherit;
+            letter-spacing: 1px;
+            color: #f0eef7;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1) inset;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .divine-button span {
+            font-size: 1.8rem;
+            filter: drop-shadow(0 0 4px rgba(255,255,200,0.6));
+            transition: transform 0.2s;
+        }
+
+        .divine-button:hover {
+            background: rgba(40, 48, 78, 0.55);
+            border-color: rgba(255, 255, 255, 0.45);
+            box-shadow: 0 18px 38px -12px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(210, 180, 255, 0.3);
+            transform: translate(-50%, -50%) scale(1.02);
+        }
+
+        .divine-button:active {
+            transform: translate(-50%, -50%) scale(0.97);
+            transition: 0.05s;
+            background: rgba(60, 68, 108, 0.7);
+        }
+
+        /* ক্লিক করলে মৃদু রিপল ইফেক্ট (ক্ষণস্থায়ী) */
+        .click-ripple {
+            position: fixed;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,240,0.7) 0%, rgba(180, 160, 255, 0) 80%);
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0);
+            animation: ripplePop 0.65s ease-out forwards;
+            z-index: 200;
+        }
+
+        @keyframes ripplePop {
+            0% {
+                width: 0px;
+                height: 0px;
+                opacity: 0.8;
+            }
+            100% {
+                width: 280px;
+                height: 280px;
+                opacity: 0;
+            }
+        }
+
+        /* ফ্লোটিং টোস্ট মেসেজ (ক্ষণিকের জন্য) — কিন্তু কোন স্থায়ী টেক্সট নয় */
+        .ephemeral-toast {
+            position: fixed;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(10, 14, 23, 0.8);
+            backdrop-filter: blur(20px);
+            color: #ddd9ff;
+            padding: 0.7rem 1.5rem;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            z-index: 150;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            pointer-events: none;
+            font-family: monospace;
+        }
+
+        .ephemeral-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0px);
+        }
+
+        /* খুবই ছোট ইঙ্গিত — কোনো কন্টেন্ট ছাড়া শুধু দৃশ্যমান বাটন */
+        @media (max-width: 550px) {
+            .divine-button {
+                padding: 0.9rem 1.5rem;
+                font-size: 1.2rem;
+                gap: 8px;
+                white-space: nowrap;
+            }
+            .divine-button span {
+                font-size: 1.3rem;
+            }
+            .ephemeral-toast {
+                font-size: 0.75rem;
+                bottom: 8%;
+            }
+        }
+
+        /* কোন টেক্সট, কোন কাউন্টার, কোন এলিমেন্ট নেই — বাটন ছাড়া সব ফাঁকা */
+        .hidden-content {
+            display: none;
+        }
+
+        /* ম্যানুয়াল স্ক্রল ইচ্ছা করলে ব্যবহারকারী করতে পারবেন, অটোস্ক্রল বিরক্ত করবে না কিন্তু ধীরে চলবে  */
+        ::-webkit-scrollbar {
+            width: 4px;
+            background: #0b0e16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4f46b0;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- শুধু পরিবেশগত আভা (কোন লেখা নেই, শুধু ডিজাইন) -->
+    <div class="ambient-glow">
+        <div class="glow-orb orb1"></div>
+        <div class="glow-orb orb2"></div>
+        <div class="glow-orb orb3"></div>
+    </div>
+
+    <!-- একমাত্র বাটন: "একবার ক্লিক করুন" (only click one time button) -->
+    <button class="divine-button" id="singleClickBtn">
+        <span>🖱️</span> ক্লিক করুন <span>✨</span>
+    </button>
+
+    <!-- ক্ষণস্থায়ী টোস্ট (শুধু ক্লিক ফিডব্যাক, স্থায়ী কিছু না) -->
+    <div id="toastMsg" class="ephemeral-toast"></div>
+
+    <script>
+        (function() {
+            // ------------------------------
+            // ১. পেজের শান্ত অটো-স্ক্রল : ধীরে ধীরে উপরে-নিচে (Breathing scroll)
+            // ------------------------------
+            let autoScrollActive = true;
+            let scrollDirection = 1;   // 1 = downwards, -1 = upwards
+            let scrollStep = 0.42;      // ধীর গতি (পিক্সেল প্রতি ফ্রেম) -> মসৃণ, asthe asthe scroll
+            let animationFrameId = null;
+            let lastScrollTop = window.scrollY;
+            
+            // সর্বোচ্চ স্ক্রল লিমিট নির্ণয়
+            function getMaxScroll() {
+                return document.documentElement.scrollHeight - window.innerHeight;
+            }
+            
+            // ধীরে ধীরে স্ক্রল করার ফাংশন
+            function smoothAutoScroll() {
+                if (!autoScrollActive) return;
+                
+                const currentScroll = window.scrollY;
+                const maxScroll = getMaxScroll();
+                
+                // দিক পরিবর্তনের যুক্তি: নিচে পৌঁছালে উপরে উঠবে, উপরে পৌঁছালে আবার নিচে নামবে (অবিরাম শ্বাসের মত)
+                if (scrollDirection === 1 && currentScroll + window.innerHeight >= document.documentElement.scrollHeight - 2) {
+                    // নিচের প্রান্তে পৌঁছেছে -> ধীরে উপরে উঠতে শুরু করবে
+                    scrollDirection = -1;
+                } else if (scrollDirection === -1 && currentScroll <= 2) {
+                    // উপরের প্রান্তে পৌঁছেছে -> আবার নিচে নামবে
+                    scrollDirection = 1;
+                }
+                
+                // নির্দিষ্ট ধাপে স্ক্রল করা
+                let newScrollY = currentScroll + (scrollStep * scrollDirection);
+                // ক্ল্যাম্পিং যাতে সীমানার বাইরে না যায়
+                newScrollY = Math.min(Math.max(newScrollY, 0), maxScroll);
+                
+                // স্ক্রল পজিশন আপডেট
+                window.scrollTo({
+                    top: newScrollY,
+                    behavior: 'auto'   // js-controlled জন্য smooth না, কারণ frameপ্রতি auto behaviour
+                });
+                
+                // অনির্দিষ্টকাল ধরে অ্যানিমেশন চালিয়ে যাওয়া
+                animationFrameId = requestAnimationFrame(smoothAutoScroll);
+            }
+            
+            // ইউজার যদি নিজে স্ক্রল করেন, তবুও অটোস্ক্রল চালু থাকবে? 
+            // তবে ব্যবহারকারীর অভিজ্ঞতা ভালো রাখতে আমরা কিছু করবো না, 
+            // কারণ অটোস্ক্রল খুব ধীর, ব্যবহারকারী যেকোনো সময় ওভাররাইড করতে পারেন। 
+            // কিন্তু কনফ্লিক্ট এড়াতে আমরা প্রতি 100ms চেক করবো না - বরং একটিভ রাখবো।
+            // তবে পেজে শুধু বাটন থাকায় অটোস্ক্রল খুবই প্রশান্তিদায়ক।
+            
+            // শুরু করা: পেজ লোড হলে অটোস্ক্রল চালু
+            function startGentleScroll() {
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                autoScrollActive = true;
+                animationFrameId = requestAnimationFrame(smoothAutoScroll);
+            }
+            
+            // বন্ধ করার দরকার নেই, তবে কখনো ইউজার ক্লিক করলে বিরতি দেওয়া হবে না,
+            // কারণ "আস্তে আস্তে স্ক্রল হতেই থাকবে" - নির্দেশ অনুযায়ী সবসময় স্ক্রল হবে।
+            // বিশেষত: ক্লিক করলেও স্ক্রল থামবে না (শুধু ক্লিক ফিডব্যাক দেখাবে)
+            startGentleScroll();
+            
+            // রিসাইজ ইভেন্টে সর্বোচ্চ স্ক্রল পুনর্মূল্যায়ন (মসৃণ অভিযোজন)
+            window.addEventListener('resize', () => {
+                // সর্বোচ্চ স্ক্রল পরিবর্তন হলে দিক রিসেট না, বরং ইফেক্ট চলতে থাকবে।
+                // বর্তমান স্ক্রল পজিশন লিমিটের বাইরে হলে ঠিক করে নেবে পরবর্তী ফ্রেমে।
+            });
+            
+            // ------------------------------
+            // ২. বাটন ক্লিক ইভেন্ট: শুধু ক্লিক একবার + নিখুঁত ফিডব্যাক (কোন কাউন্টার, কোন লেখা স্থায়ী নয়)
+            // ------------------------------
+            const button = document.getElementById('singleClickBtn');
+            const toast = document.getElementById('toastMsg');
+            
+            // ক্ষণস্থায়ী মেসেজ দেখানো (যা ১.৫সেকেন্ড পরে অদৃশ্য)
+            function showTemporaryMessage(text, emoji = '✨') {
+                if (!toast) return;
+                toast.textContent = `${emoji} ${text} ${emoji}`;
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 1300);
+            }
+            
+            // রিপল ইফেক্ট তৈরি (যেখানে ক্লিক হয়েছে সেখানে মৃদু তরঙ্গ)
+            function createRippleEffect(event) {
+                const ripple = document.createElement('div');
+                ripple.classList.add('click-ripple');
+                const rect = button.getBoundingClientRect();
+                // ক্লিক পজিশন বাটনের সাপেক্ষে নয়, বাটনের সেন্টারে বা ক্লিক স্থানে? সাধারণত যেখানে ক্লিক হয়
+                let clientX = event.clientX;
+                let clientY = event.clientY;
+                // যদি ক্লিক পজিশন বাটনের বাইরেও হতে পারে? কিন্তু বাটনে ক্লিক ইভেন্ট, তাই বাটনের মধ্যেই হবে।
+                ripple.style.left = clientX + 'px';
+                ripple.style.top = clientY + 'px';
+                document.body.appendChild(ripple);
+                setTimeout(() => {
+                    if (ripple && ripple.remove) ripple.remove();
+                }, 700);
+            }
+            
+            // বাটনে ক্লিকের মূল অ্যাকশন: শুধুমাত্র একটু আনন্দ, অথচ পৃষ্ঠায় কোনো স্থায়ী পরিবর্তন নেই
+            function handleButtonClick(e) {
+                e.stopPropagation();
+                
+                // বিউটিফুল রিপল ও স্পার্ক অনুভূতি
+                createRippleEffect(e);
+                
+                // বাটনে সামান্য কম্পন অ্যানিমেশন (অস্থায়ী)
+                button.style.transform = "translate(-50%, -50%) scale(0.96)";
+                setTimeout(() => {
+                    button.style.transform = "translate(-50%, -50%) scale(1)";
+                }, 120);
+                
+                // হালকা কম্পন (ভাইব্রেশন) যদি সাপোর্ট করে - ইমার্সিভ ফিল
+                if (window.navigator && window.navigator.vibrate) {
+                    window.navigator.vibrate(12);
+                }
+                
+                // টোস্ট মেসেজ যা কিছুক্ষণ পর মিলিয়ে যাবে - স্থায়ী কিছু নেই, শুধু অনুভূতি
+                showTemporaryMessage("একবার ❤️ ক্লিক হয়েছে", "🌟");
+                
+                // অতিরিক্ত: আকাশে (console) কোনো কিছু রাখা হয়নি, পেজ ফাঁকা
+                // কিন্তু খুব সূক্ষ্ম ব্যাকগ্রাউন্ড গ্লো চাঞ্চল্য (ক্ষণকালীন)
+                const ambient = document.querySelector('.ambient-glow');
+                if (ambient) {
+                    ambient.style.transition = 'filter 0.2s';
+                    ambient.style.filter = 'brightness(1.05) drop-shadow(0 0 6px #a38eff)';
+                    setTimeout(() => {
+                        if (ambient) ambient.style.filter = '';
+                    }, 250);
+                }
+            }
+            
+            if (button) {
+                button.addEventListener('click', handleButtonClick);
+                // টাচ ডিভাইসের জন্যও নিশ্চিত
+                button.addEventListener('touchstart', (e) => {
+                    // টাচে ভাইব্রেশন ইফেকট আলাদা, একই ক্লিক হ্যান্ডলার কল করবো
+                    handleButtonClick(e);
+                });
+            }
+            
+            // ------------------------------
+            // ৩. অতিরিক্ত ডিজাইন মেজাজ: পৃষ্ঠায় কোন টেক্সট কিংবা কাউন্টার নেই, সেটা নিশ্চিত
+            // শুধু বাটন আর ধীর গতির স্ক্রলিং। ব্যাকগ্রাউন্ড মুভমেন্ট নেই, তবে অর্বস আলতো করে ভাসে।
+            // এছাড়াও ইউজার যদি ম্যানুয়ালি স্ক্রল করে, অটোস্ক্রল কন্টিনিউ থাকবে — অভিজ্ঞতা ভঙ্গ করে না
+            // বাটন সবসময় মাঝখানে fixed, স্ক্রল হলেও বাটন দেখা যাবে, ক্লিক করা যাবে।
+            
+            // নিরাপত্তা: যদি কখনও scroll step খুব দ্রুত লাগে, তবে ধীর রেখেছি 0.42px per frame (~25px/sec)
+            // যা সত্যিই "আস্তে আস্তে" অনুভূতি দেয়।
+            // স্ক্রল দিক পরিবর্তন করে "ব্রিদিং" ইফেক্ট প্রদান করে — পেজ মৃদুভাবে উপরে-নিচে ঘুরবে।
+            
+            // গতি কন্ট্রোল: অনুরোধ থাকলে খুব স্লো (0.35px এ নামানো যায়), কিন্তু 0.42 ইতিমধ্যেই উপযুক্ত
+            // আমরা আরও কোমল অনুভূতি দিতে পারি: মাউস এন্টার করলেও থামবে না, নির্দেশনা ছিল "সবসময় scroll হতেই থাকবে"
+            
+            // ------------------------------
+            // ৪. পারফরম্যান্স এবং স্মুথ রেন্ডারিং: reflow কমাতে ফিক্সড বাটন
+            // পেজের body তে কোনো অপ্রয়োজনীয় এলিমেন্ট নেই। ভিজিটর কেবল একটি বাটন দেখবেন, 
+            // এবং পৃষ্ঠাটি ধীরে ধীরে উপর-নিচে চলমান। সম্পূর্ণ minimal, শান্ত, আধুনিক। 
+            // "অনেক ভালো ডিজাইন" — নরম অর্ব, কাচের মতো বাটন, মিনিমালিস্ট টোস্ট।
+            
+            // (অপশনাল) উইন্ডো রিসাইজ বা কন্টেন্ট লোড হলে maxScroll রি-অ্যাডজাস্ট, অটোস্ক্রল চলতেই থাকবে
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                if (resizeTimer) clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    // রিসাইজের পরে স্ক্রল পজিশন যদি ম্যাক্সের বাইরে থাকে তবে অটো ঠিক হয়ে যাবে পরবর্তী frame এ
+                    // পুনরায় কোনো একশন নেওয়ার দরকার নেই। 
+                }, 150);
+            });
+            
+            // বিশেষ নোট: এই পেজে "সবকিছু খালি" রেখেছি, বাটন ছাড়া কোনো শব্দ, কাউন্টার বা লেখা নাই।
+            // “click one time akta button thakbe” — শুধু একটি বাটন। সেই বাটনে ক্লিক করলে সুন্দর অনুভূতি।
+            // পেজটি "আস্তে আস্তে স্ক্রল হবে" (উপরে-নিচে চক্রাকারে) – বাস্তবায়িত।
+            console.log("✨ পূর্ণতা: শুধু বাটন + ধীর স্ক্রল | সব কিছু খালি, শুধু মায়াবী ক্লিক ✨");
+            
+            // প্রারম্ভিক স্ক্রল পজিশন মাঝামাঝি রাখলে ভালো হয়? শুরুতে টপে থাকে, ধীরে ধীরে নিচে নামবে (scrollDirection = 1)
+            // ইতিমধ্যেই সেটি আছে। এতে ব্যবহারকারী প্রথমে বাটন দেখতে পাবেন এবং ধীর গতি উপভোগ করবেন।
+            // কখনো যদি কেউ স্ক্রল নিজে করেন, তবুও অটোস্ক্রল চালু থাকবে তবে দ্বন্দ্ব তৈরি হবে না।
+            // চাইলে ইউজার scroll করতে পারেন, বাটন সবসময় দৃশ্যমান।
+            
+            // কিছু ব্রাউজারে scroll behavior নিয়ে redundant, কিন্তু smoothAutoScroll ঠিকঠাক কাজ করে।
+            // যদি পেজের height কমপক্ষে 200vh না হয়, তাহলে min-height 300vh দিয়ে দিয়েছি।
+            // এখন সবকিছু প্রস্তুত।
+        })();
+    </script>
+</body>
+</html>
